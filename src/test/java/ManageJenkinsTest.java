@@ -1,119 +1,368 @@
-import org.openqa.selenium.*;
-
-import org.openqa.selenium.support.ui.ExpectedConditions;
-import org.openqa.selenium.support.ui.WebDriverWait;
 import org.testng.Assert;
 import org.testng.annotations.Ignore;
 import org.testng.annotations.Test;
+import model.*;
+import model.jobs.details.FreestyleProjectDetailsPage;
+import model.nodes.NodesListPage;
+import model.users.UserDatabasePage;
 import runner.BaseTest;
 import runner.TestUtils;
 
-import java.time.Duration;
+import java.util.List;
+
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class ManageJenkinsTest extends BaseTest {
-    private static final String NEW_USERS_FULL_NAME = TestUtils.getRandomStr();
-    private static final String PLUGIN_NAME = "TestNG Results";
-    private static final By MANAGE_JENKINS = By.linkText("Manage Jenkins");
-    private static final By SECURITY_MANAGE_USERS = By.xpath("//a[@href='securityRealm/']");
-    private static final By JENKINS_MENU_DROPDOWN = By.cssSelector("a[href='user/admin/'] > .jenkins-menu-dropdown-chevron");
-    private static final By USER_ADMIN_CONFIGURE = By.cssSelector("a[href='/user/admin/configure']");
-    private static final By USER_FULL_NAME = By.xpath("//input[@name='_.fullName']");
-    private static final By SAVE_BUTTON = By.id("yui-gen3-button");
-    private static final By CONFIGURE_BUTTON = By.className("jenkins-table__button");
-    private static final By H1_TITLE = By.xpath("//h1");
-    private static final By PAGE_HEADER_USER = By.cssSelector(".model-link > .hidden-xs.hidden-sm");
-    private static final By BREADCRUMBS_USER_NAME = By.xpath("//li[@class='item'][last()]");
-    private static final By PLUGIN_MANAGER = By.xpath("//a[@href='pluginManager']");
-    private static final By AVAILABLE_PLUGINS_TAB = By.xpath("//a[@href='./available']");
-    private static final By INSTALLED_PLUGINS_TAB = By.xpath("//a[@href='./installed']");
-    private static final By SEARCH_PLUGIN_FIELD = By.id("filter-box");
-    private static final By PLUGIN_TABLE_ROWS = By.xpath("//div[@id='main-panel']//tbody//tr");
 
-    public static void jsClick(WebDriver driver, WebElement element) {
-        JavascriptExecutor executor = (JavascriptExecutor) driver;
-        executor.executeScript("arguments[0].click();", element);
-    }
+    private static final String TOOLTIP = "Press / on your keyboard to focus";
+    private static final String PLACEHOLDER = "Search settings";
+    private static final String SEARCH_SYSTEM = "System";
+    private final static String USER_NAME_CREDENTIAL = "Credentials Provider name";
+    private static final String PROJECT_NAME = "NewFreestyleProject";
 
-    public static WebDriverWait getWait(WebDriver driver, int seconds) {
-        return new WebDriverWait(driver, Duration.ofSeconds(seconds));
+    @Test
+    public void testShortcutTooltipVisibility() {
+
+        ManageJenkinsPage manageJenkinsPage = new HomePage(getDriver())
+                .clickManageJenkins()
+                .hoverOverShortcutIcon();
+
+        Assert.assertEquals(manageJenkinsPage.getTooltipText(), TOOLTIP);
+        Assert.assertTrue(manageJenkinsPage.isShortcutTooltipVisible(), TOOLTIP + " is not visible");
     }
 
     @Test
-    public void testRenameFullUserName() {
-        getDriver().findElement(MANAGE_JENKINS).click();
-        TestUtils.scrollToElement(getDriver(), getDriver().findElement(By.xpath("//h2[text()='Security']")));
-        getDriver().findElement(SECURITY_MANAGE_USERS).click();
-        getDriver().findElement(CONFIGURE_BUTTON).click();
-        getDriver().findElement(USER_FULL_NAME).clear();
-        getDriver().findElement(USER_FULL_NAME).sendKeys(NEW_USERS_FULL_NAME);
-        getDriver().findElement(SAVE_BUTTON).click();
+    public void testNoResultsTextVisibility() {
 
-        getDriver().navigate().refresh();
+        String resultText = new HomePage(getDriver())
+                .clickManageJenkins()
+                .typeSearchInputField("Test")
+                .getNoResultText();
 
-        Assert.assertEquals(getDriver().findElement(BREADCRUMBS_USER_NAME).getText(), NEW_USERS_FULL_NAME);
-        Assert.assertEquals(getDriver().findElement(PAGE_HEADER_USER).getText(), NEW_USERS_FULL_NAME);
+        Assert.assertEquals(resultText, "No results");
     }
 
     @Test
-    public void testManageOldData() {
+    public void testRedirectPage() {
+        final String request = "Nodes";
 
-        final String expectedText = "No old data was found.";
+        String url = new HomePage(getDriver())
+                .clickManageJenkins()
+                .typeSearchInputField(request)
+                .clickResult(request, new NodesListPage(getDriver()))
+                .getCurrentURL();
 
-        getDriver().findElement(MANAGE_JENKINS).click();
+        Assert.assertTrue(url.contains("manage/computer/"));
+    }
 
-        jsClick(getDriver(), getDriver().findElement(By.xpath("//a[@href='administrativeMonitor/OldData/']")));
+    @Test
+    public void testListOfResultsVisibility() {
 
-        String allTextFromMainPanel = getDriver().findElement(By.id("main-panel")).getText();
-        String[] actualText = allTextFromMainPanel.split("\n");
+        List<String> result = new HomePage(getDriver())
+                .clickManageJenkins()
+                .typeSearchInputField("N")
+                .getResultsList();
 
-        Assert.assertTrue(getDriver().findElements(By.xpath("//div[@id='main-panel']//tbody//tr")).isEmpty());
-        Assert.assertEquals(actualText[actualText.length - 1], expectedText);
+        Assert.assertEquals(
+                List.of("Plugins", "Nodes", "Credentials", "Credential Providers", "System Information"),
+                result
+        );
+    }
+
+    @Test
+    public void testPlaceholderVisibility() {
+
+        ManageJenkinsPage manageJenkinsPage = new HomePage(getDriver())
+                .clickManageJenkins();
+
+        Assert.assertEquals(manageJenkinsPage.getPlaceholderText(), PLACEHOLDER);
+        Assert.assertTrue(manageJenkinsPage.isPlaceholderVisible(), PLACEHOLDER + " is not visible");
+    }
+
+    @Test
+    public void testSearchFieldBecomesActiveAfterUsingShortcut() {
+
+        boolean searchFieldIsActiveElement = new HomePage(getDriver())
+                .clickManageJenkins()
+                .moveToSearchFieldUsingShortcut()
+                .isSearchFieldActiveElement();
+
+        Assert.assertTrue(searchFieldIsActiveElement, "Search field is not the active element");
+    }
+
+    @Test
+    public void testSearchFieldTextVisibilityUsingShortcut() {
+
+        ManageJenkinsPage manageJenkinsPage = new HomePage(getDriver())
+                .clickManageJenkins()
+                .moveToSearchFieldUsingShortcut()
+                .typeTextBeingInSearchFieldWithoutLocator(SEARCH_SYSTEM);
+
+        Assert.assertEquals(manageJenkinsPage.getSearchFieldText(), SEARCH_SYSTEM);
+        Assert.assertTrue(manageJenkinsPage.isSearchTextAfterShortcutVisible(), SEARCH_SYSTEM + " is not visible");
+    }
+
+    @Test
+    public void testReloadConfigurationAlertText() {
+
+        String reloadConfigurationAlertText = new HomePage(getDriver())
+                .clickManageJenkins()
+                .clickReloadConfiguration()
+                .getAlertText();
+
+        Assert.assertEquals(reloadConfigurationAlertText, "Reload Configuration from Disk: are you sure?");
+    }
+
+    @Test
+    public void testSettingsSectionsQuantity() {
+
+        Integer settingsSectionsQuantity = new HomePage(getDriver())
+                .clickManageJenkins()
+                .getSettingsSectionsQuantity();
+
+        Assert.assertEquals(settingsSectionsQuantity, 18);
+    }
+
+    @Test
+    public void testTroubleshootingVisibility() {
+
+        String manageOldData = new HomePage(getDriver())
+                .clickManageJenkins()
+                .getManageOldDataText();
+
+        Assert.assertEquals(manageOldData, "Manage Old Data");
+    }
+
+    @Test
+    public void testStatusInformationSectionsVisibleAndClickable() {
+
+        ManageJenkinsPage manageJenkinsPage = new HomePage(getDriver())
+                .clickManageJenkins();
+
+        Assert.assertTrue(manageJenkinsPage.areStatusInformationSectionsVisible());
+        Assert.assertTrue(manageJenkinsPage.areStatusInformationSectionsClickable());
+    }
+
+    @Test
+    public void testStatusInformationSectionsQuantity() {
+        Integer statusInformationSectionsQuantity = new HomePage(getDriver())
+                .clickManageJenkins()
+                .getStatusInformationSectionsQuantity();
+
+        Assert.assertEquals(statusInformationSectionsQuantity, 4);
+    }
+
+    @Test
+    public void testTroubleshootingClick() {
+        ManageJenkinsPage manageJenkinsPage = new HomePage(getDriver())
+                .clickManageJenkins();
+
+        Assert.assertTrue(manageJenkinsPage.isManageOldDataClickable());
+    }
+
+    @Test
+    public void testVisibilitySecuritySections() {
+        ManageJenkinsPage manageJenkinsPage = new HomePage(getDriver())
+                .clickManageJenkins();
+
+        Assert.assertTrue(manageJenkinsPage.areSecuritySectionsVisible());
+    }
+
+    @Test
+    public void testClickabilitySecuritySections() {
+        ManageJenkinsPage manageJenkinsPage = new HomePage(getDriver())
+                .clickManageJenkins();
+
+        Assert.assertTrue(manageJenkinsPage.areSecuritySectionsClickable());
+    }
+
+    @Test
+    public void testRedirectionPluginsPage() {
+        String urlText = new HomePage(getDriver())
+                .clickManageJenkins()
+                .goPluginsPage()
+                .getCurrentUrl();
+
+        Assert.assertTrue(urlText.contains("pluginManager/"));
+    }
+
+    @Test
+    public void testSystemInfoPageRedirection() {
+        String currentUrl = new HomePage(getDriver())
+                .clickManageJenkins()
+                .clickSystemInfoSection()
+                .getCurrentUrl();
+
+        Assert.assertTrue(currentUrl.contains("systemInfo"), currentUrl + " doesn't contain expected text");
+    }
+
+    @Test
+    public void testSystemLogPageRedirection() {
+        SystemLogPage systemLogPage = new HomePage(getDriver())
+                .clickManageJenkins()
+                .goSystemLogPage();
+
+        Assert.assertTrue(systemLogPage.getPageTitle().contains("Log Recorders"));
+        Assert.assertTrue(systemLogPage.getCurrentUrl().contains("log"));
+    }
+
+    @Test
+    public void testVisibilityOfSearchField() {
+        ManageJenkinsPage manageJenkinsPage = new HomePage(getDriver())
+                .clickManageJenkins();
+
+        Assert.assertTrue(manageJenkinsPage.searchFieldIsVisible());
+    }
+
+    @Test
+    public void testSearchFieldByClick() {
+        final String inputText = "sys";
+
+        boolean searchResultIsClickable = new HomePage(getDriver())
+                .clickManageJenkins()
+                .clickOnSearchField()
+                .typeSearchInputField(inputText)
+                .searchResultsAreClickable();
+
+        Assert.assertTrue(searchResultIsClickable);
+    }
+
+    @Test
+    public void testDefaultRedirectionByEnter() {
+        final String inputText = "u";
+        final String url = "/manage/pluginManager/";
+
+        String redirectedUrl = new HomePage(getDriver())
+                .clickManageJenkins()
+                .pressEnterAfterInput(inputText);
+
+        Assert.assertTrue(redirectedUrl.contains(url));
+    }
+
+    @Test
+    public void testLoadStatisticsRedirection() {
+        String currentUrl = new HomePage(getDriver())
+                .clickManageJenkins()
+                .clickLoadStatisticsSection()
+                .getCurrentUrl();
+
+        Assert.assertTrue(currentUrl.contains("load-statistics"));
+    }
+
+    @Test
+    public void testAboutJenkinsRedirection() {
+        String pageTitle = new HomePage(getDriver())
+                .clickManageJenkins()
+                .clickAboutJenkinsSection()
+                .getPageTitle();
+
+        Assert.assertTrue(pageTitle.contains("About Jenkins"));
+    }
+
+    @Test
+    public void testStatusInformationSectionsTitles() {
+        List<String> expectedStatusInformationSectionsList = List.of(
+                "System Information",
+                "System Log",
+                "Load Statistics",
+                "About Jenkins"
+        );
+
+        List<String> statusInformationSectionsList = new HomePage(getDriver())
+                .clickManageJenkins()
+                .getStatusInformationSectionsTitles();
+
+        Assert.assertEquals(statusInformationSectionsList, expectedStatusInformationSectionsList,
+                "Status Information sections titles differ from the expected ones");
     }
 
     @Ignore
     @Test
-    public void testRenameUsersFullName() {
-        getDriver().findElement(MANAGE_JENKINS).click();
-        getDriver().findElement(SECURITY_MANAGE_USERS).click();
-        getDriver().findElement(JENKINS_MENU_DROPDOWN).click();
-        getDriver().findElement(USER_ADMIN_CONFIGURE).click();
-        getDriver().findElement(USER_FULL_NAME).clear();
-        getDriver().findElement(USER_FULL_NAME).sendKeys(NEW_USERS_FULL_NAME);
-        getDriver().findElement(SAVE_BUTTON).click();
+    public void testCreateCredentialFromConfigurePage() {
 
-        getDriver().navigate().refresh();
+        TestUtils.createFreestyleProject(this, PROJECT_NAME, true);
 
-        Assert.assertEquals(getDriver().findElement(H1_TITLE).getText(), NEW_USERS_FULL_NAME);
-        Assert.assertEquals(getDriver().findElement(PAGE_HEADER_USER).getText(), NEW_USERS_FULL_NAME);
+        boolean credentialsCreated = new HomePage(getDriver())
+                .clickProjectStatusByName(PROJECT_NAME, new FreestyleProjectDetailsPage(getDriver()))
+                .clickConfigure()
+                .clickGitRadioButtonWithScroll()
+                .clickAddButton()
+                .clickJenkinsOption()
+                .inputUsername(USER_NAME_CREDENTIAL)
+                .clickAddButtonCredentialsProvider()
+                .checkIfNewCredentialInTheMenu(USER_NAME_CREDENTIAL);
+
+        assertTrue(credentialsCreated);
     }
 
     @Ignore
+    @Test(dependsOnMethods = "testCreateCredentialFromConfigurePage")
+    public void testDeleteCredential() {
+
+        String expectedText = "Global credentials (unrestricted)";
+
+        String actualText = new HomePage(getDriver())
+                .clickPeople()
+                .clickCurrentUserName()
+                .clickCredentials()
+                .clickCredentialsByName(USER_NAME_CREDENTIAL)
+                .clickDeleteButton()
+                .clickYesButton()
+                .getTextMainPanel();
+
+        assertEquals(actualText, expectedText);
+    }
+
     @Test
-    public void testPluginManagerInstallPlugin() {
+    public void testSecurityPageRedirection() {
+        SecurityPage securityPage = new HomePage(getDriver())
+                .clickManageJenkins()
+                .clickSecuritySection();
 
-        getDriver().findElement(MANAGE_JENKINS).click();
-        getDriver().findElement(PLUGIN_MANAGER).click();
-        getDriver().findElement(AVAILABLE_PLUGINS_TAB).click();
-        getDriver().findElement(SEARCH_PLUGIN_FIELD).sendKeys(ManageJenkinsTest.PLUGIN_NAME);
-        getDriver().findElement(By.xpath("//tr[@data-plugin-id='testng-plugin']//label")).click();
-        getDriver().findElement(By.id("yui-gen1-button")).click();
+        Assert.assertTrue(securityPage.getPageTitle().contains("Security"));
+        Assert.assertTrue(securityPage.getCurrentUrl().contains("configureSecurity"));
+    }
 
-        for (WebElement element : getDriver().findElements(By.xpath("//td[contains(@id, 'status')]"))) {
-            getWait(getDriver(), 10).until(ExpectedConditions.textToBePresentInElement(element, "Success"));
-        }
+    @Test
+    public void testCredentialsPageRedirection() {
+        CredentialsPage credentialsPage = new HomePage(getDriver())
+                .clickManageJenkins()
+                .clickCredentialsSection();
 
-        getDriver().findElement(By.linkText("Go back to the top page")).click();
-        getDriver().findElement(MANAGE_JENKINS).click();
-        getDriver().findElement(PLUGIN_MANAGER).click();
-        getDriver().findElement(AVAILABLE_PLUGINS_TAB).click();
-        getDriver().findElement(SEARCH_PLUGIN_FIELD).sendKeys(ManageJenkinsTest.PLUGIN_NAME);
+        Assert.assertTrue(credentialsPage.getPageTitle().contains("Credentials"));
+        Assert.assertTrue(credentialsPage.getCurrentUrl().contains("credentials"));
+    }
 
-        getWait(getDriver(), 10).until(ExpectedConditions.numberOfElementsToBe(PLUGIN_TABLE_ROWS, 0));
+    @Test
+    public void testCredentialProvidersPageRedirection() {
+        CredentialProvidersPage credentialsProvidersPage = new HomePage(getDriver())
+                .clickManageJenkins()
+                .clickCredentialProvidersSection();
 
-        getDriver().findElement(INSTALLED_PLUGINS_TAB).click();
-        getDriver().findElement(SEARCH_PLUGIN_FIELD).sendKeys(ManageJenkinsTest.PLUGIN_NAME);
+        Assert.assertTrue(credentialsProvidersPage.getPageTitle().contains("Credential Providers"));
+        Assert.assertTrue(credentialsProvidersPage.getCurrentUrl().contains("configureCredentials"));
+    }
 
-        Assert.assertFalse(getDriver().findElements(PLUGIN_TABLE_ROWS).isEmpty());
-        Assert.assertTrue(getDriver().findElement(By.xpath("//tr[@data-plugin-id='testng-plugin']")).isDisplayed());
+    @Test
+    public void testUserDatabasePageRedirection() {
+        UserDatabasePage usersPage = new HomePage(getDriver())
+                .clickManageJenkins()
+                .clickUsersButton();
+
+        Assert.assertTrue(usersPage.getPageTitle().contains("Users"));
+        Assert.assertTrue(usersPage.getCurrentUrl().contains("securityRealm"));
+    }
+
+    @Test
+    public void testReloadConfigurationAlertDisappearance() {
+
+        ManageJenkinsPage manageJenkinsPage = new HomePage(getDriver())
+                .clickManageJenkins()
+                .clickReloadConfiguration()
+                .dismissAlert();
+
+        Assert.assertTrue(manageJenkinsPage.isAlertNotPresent());
+        Assert.assertEquals(manageJenkinsPage.getHeadLineText(), "Manage Jenkins");
     }
 }

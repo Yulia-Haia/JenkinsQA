@@ -1,79 +1,91 @@
-import model.HomePage;
-import model.NewItemPage;
-import org.apache.commons.lang3.RandomStringUtils;
-import org.openqa.selenium.By;
-import org.openqa.selenium.WebElement;
-import org.testng.Assert;
 import org.testng.annotations.Ignore;
 import org.testng.annotations.Test;
+import model.errors.ErrorPage;
+import model.jobs.configs.FreestyleProjectConfigurePage;
+import model.HomePage;
 import runner.BaseTest;
-import java.util.List;
-import java.util.stream.Collectors;
+
+import static org.testng.Assert.*;
 
 public class NewItemTest extends BaseTest {
 
-    private static final String PROJECT_NAME = "New_" + getRandomName(7);
-
-    private static String getRandomName(int length) {
-        return RandomStringUtils.random(length,
-                "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789");
-    }
-
-    @Ignore
     @Test
-    public void testNewItemsPageContainsItemsWithoutCreatedProject() {
-        final List<String> expectedResult = List.of("Freestyle project", "Pipeline", "Multi-configuration project",
-                "Folder", "Multibranch Pipeline", "Organization Folder");
+    public void testNewItemFromExistedJobSectionIsDisplayedWhenItemCreated() {
+        final String projectName = "Test Project";
 
-        getDriver().findElement(By.linkText("New Item")).click();
-
-        List<WebElement> newItemsElements = getDriver().findElements(By.xpath("//label/span[@class='label']"));
-        List<String> newItemsName = newItemsElements.stream().map(WebElement::getText).collect(Collectors.toList());
-
-        Assert.assertEquals(newItemsName, expectedResult);
-    }
-
-    @Test
-    @Ignore
-    public void testGoToNewItemPage() {
-        final String expectedResult = "Enter an item name";
-
-        getDriver().findElement(By.linkText("New Item")).click();
-
-        Assert.assertEquals(getDriver().findElement(By.className("h3")).getText(), expectedResult);
-
-    }
-
-    @Test
-    public void testCreateFolder() {
-        getDriver().findElement(By.linkText("New Item")).click();
-        getDriver().findElement(By.id("name")).sendKeys(PROJECT_NAME);
-        getDriver().findElement(By.xpath("//span[@class='label' and text()='Folder']")).click();
-        getDriver().findElement(By.id("ok-button")).click();
-        getDriver().findElement(By.id("yui-gen4-button")).click();
-        getDriver().findElement(By.xpath("//a[@href='/' and  @class= 'model-link']")).click();
-
-        Assert.assertEquals(getDriver().findElement
-                (By.xpath("//table[@id='projectstatus']//a[@href='job/"+ PROJECT_NAME + "/']")).getText(), PROJECT_NAME);
-    }
-
-    @Test
-    public void testCreateAnyItemWithSpacesOnlyNameError() {
-
-        int itemsListSize =  new HomePage(getDriver())
+        boolean isCloneItemSectionDisplayed = new HomePage(getDriver())
                 .clickNewItem()
-                .getItemsListSize();
+                .createFreestyleProject(projectName)
+                .goHomePage()
+                .clickNewItem()
+                .isCloneItemSectionDisplayed();
 
-        for (int i = 0; i < itemsListSize; i++) {
+        assertTrue(isCloneItemSectionDisplayed);
+    }
 
-            String actualErrorMessage =  new NewItemPage(getDriver())
-                    .rootMenuDashboardLinkClick()
-                    .clickNewItem()
-                    .setProjectName("      ")
-                    .setItemAndClickOk(i)
-                    .getErrorMessage();
+    @Test
+    public void testNewItemFromExistedJobSectionIsNotDisplayedWhenNoItemsCreated() {
+        boolean isCloneItemSectionDisplayed = new HomePage(getDriver())
+                .clickNewItem()
+                .isCloneItemSectionDisplayed();
 
-            Assert.assertEquals(actualErrorMessage, "No name is specified");
-        }
+        assertFalse(isCloneItemSectionDisplayed);
+    }
+
+    @Test
+    public void testAutocompleteListOfCopyFromFieldWithItemCreated() {
+        final String firstProject = "Test project";
+        final String secondProject = "Test project 2";
+
+        boolean isAutocompleteSuggested = new HomePage(getDriver())
+                .clickNewItem()
+                .createFreestyleProject(firstProject)
+                .goHomePage()
+                .clickNewItem()
+                .typeItemName(secondProject)
+                .enterExistentItemNameToClone(firstProject.substring(0, 4))
+                .isAutocompleteToCloneSuggested(firstProject);
+
+        assertTrue(isAutocompleteSuggested);
+    }
+
+    @Test
+    public void testNewItemCreationWithNonExistentName() {
+        final String firstProject = "Test project";
+        final String secondProject = "Test project 2";
+        final String nonExistentProject = "Test project 3";
+
+        String errorMessage = new HomePage(getDriver())
+                .clickNewItem()
+                .createFreestyleProject(firstProject)
+                .goHomePage()
+                .clickNewItem()
+                .typeItemName(secondProject)
+                .enterExistentItemNameToClone(nonExistentProject)
+                .clickOkWithError(new ErrorPage(getDriver()))
+                .getErrorFromMainPanel();
+
+        assertEquals(errorMessage, ("Error\n" + "No such job: " + nonExistentProject));
+    }
+
+    @Ignore
+    @Test
+    public void testNewItemCreationWithExistentName() {
+        final String firstProject = "Test project";
+        final String secondProject = "Test project 2";
+
+        boolean isProjectCreated = new HomePage(getDriver())
+                .clickNewItem()
+                .createFreestyleProject(firstProject)
+                .goHomePage()
+                .clickNewItem()
+                .typeItemName(secondProject)
+                .enterExistentItemNameToClone(firstProject)
+                .clickOk(new FreestyleProjectConfigurePage(getDriver()))
+                .clickSaveButton()
+                .goHomePage()
+                .isProjectExist(secondProject);
+
+        assertTrue(isProjectCreated);
     }
 }

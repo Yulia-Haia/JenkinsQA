@@ -1,30 +1,39 @@
 package model;
 
+import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.support.FindBy;
-import org.openqa.selenium.support.ui.Select;
+import model.base.BaseDetailsPage;
+import model.base.BasePage;
 
-public class MovePage extends BasePage {
+public class MovePage<DetailsPage extends BaseDetailsPage<?, ?>> extends BasePage<DetailsPage> {
 
-    @FindBy(css = ".select.setting-input")
-    private WebElement dropdown;
-
-    @FindBy(xpath = "//button[text()='Move']")
+    @FindBy(name = "Submit")
     private WebElement moveButton;
+
+    @FindBy(name = "destination")
+    private WebElement destinationDropdown;
 
     public MovePage(WebDriver driver) {
         super(driver);
     }
 
-    public MovePage selectFolder(String name) {
-        new Select(dropdown).selectByVisibleText("Jenkins » " + name);
+    public MovePage<DetailsPage> clickArrowDropDownMenu() {
+        destinationDropdown.click();
 
         return this;
     }
-    public StatusPage clickMove() {
+
+    public MovePage<DetailsPage> clickFolderByName(String folderName) {
+        getDriver().findElement(By.xpath("//*[contains(@value,'" + folderName + "')]")).click();
+
+        return this;
+    }
+
+    public MovePage<DetailsPage> clickMoveFromMovePage() {
         moveButton.click();
 
-        return new StatusPage(getDriver());
+        return new MovePage<>(getDriver());
     }
 }

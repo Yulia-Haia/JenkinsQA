@@ -1,72 +1,202 @@
-import org.openqa.selenium.By;
-import org.openqa.selenium.interactions.Actions;
-import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.testng.Assert;
+import org.testng.annotations.Ignore;
 import org.testng.annotations.Test;
+import model.AboutJenkinsPage;
+import model.HomePage;
 import runner.BaseTest;
 
-import java.util.ArrayList;
-
-import static runner.TestUtils.scrollToEnd;
+import java.util.List;
 
 public class FooterTest extends BaseTest {
+    private static final String JENKINS_VERSION = "Jenkins 2.414.2";
+    private static final String ABOUT_JENKINS_VERSION = "Version 2.414.2";
+    private static final String REST_API = "REST API";
 
-    private static final By REST_API_LINK = By.xpath("//a[@href='api/']");
-    private static final By JENKINS_LINK = By.xpath("//a[@href='https://www.jenkins.io/']");
     @Test
-    public void testFooterLinkRestIsDisplayed() {
+    public void testVersionButtonHomePage() {
+        String jenkinsVersionActual = new HomePage(getDriver())
+                .getVersionJenkinsButton();
 
-        Assert.assertTrue(getDriver().findElement(REST_API_LINK).isDisplayed());
+        Assert.assertEquals(jenkinsVersionActual, JENKINS_VERSION);
     }
 
-    @Test
-    public void testFooterLinkRestRedirectToPage() {
+    @Test(dependsOnMethods = "testVersionButtonHomePage")
+    public void testVersionAboutJenkinsPage() {
+        String jenkinsVersion = new HomePage(getDriver())
+                .goAboutJenkinsPage()
+                .getJenkinsVersion();
 
-        getDriver().findElement(REST_API_LINK).click();
-
-        Assert.assertTrue(getDriver().getCurrentUrl().contains("api"));
-        Assert.assertEquals(getDriver().findElement(By.xpath("//*[@id='main-panel']/h1")).getText(), "REST API");
+        Assert.assertEquals(jenkinsVersion, ABOUT_JENKINS_VERSION);
     }
 
-    @Test
-    public void testFooterLinkJenkinsIdDisplayed() {
+    @Test(dependsOnMethods = "testVersionAboutJenkinsPage")
+    public void testVersionStatusUserPage() {
+        String jenkinsVersion = new HomePage(getDriver())
+                .clickUserNameHeader("admin")
+                .getVersionJenkinsButton();
 
-        Assert.assertTrue(getDriver().findElement(JENKINS_LINK).isDisplayed());
+        Assert.assertEquals(jenkinsVersion, JENKINS_VERSION);
     }
 
-    @Test
-    public void testFooterLinkJenkinsRedirectToPage() {
+    @Test(dependsOnMethods = "testVersionStatusUserPage")
+    public void testJenkinsVersionStatusUserPageClick() {
+        String jenkinsVersion = new HomePage(getDriver())
+                .clickUserNameHeader("admin")
+                .goAboutJenkinsPage()
+                .getJenkinsVersion();
 
-        getDriver().findElement(JENKINS_LINK).click();
-
-        ArrayList<String> tabs = new ArrayList<>(getDriver().getWindowHandles());
-        getDriver().switchTo().window(tabs.get(1));
-
-        Assert.assertTrue(getDriver().getCurrentUrl().contains("jenkins"));
-        Assert.assertEquals(getDriver().findElement(By.xpath("//*[@id='ji-toolbar']/a")).getText(), "Jenkins");
-
-        getDriver().switchTo().window(tabs.get(0));
+        Assert.assertEquals(jenkinsVersion, ABOUT_JENKINS_VERSION);
     }
 
-    @Test
-    public void testFooterRestApiClickOnXmlApiDisplayXML() {
-        getDriver().findElement(REST_API_LINK).click();
+    @Test(dependsOnMethods = "testJenkinsVersionStatusUserPageClick")
+    public void testCheckTippyBox() {
+        final List<String> expectedMenu = List.of(
+                "About Jenkins",
+                "Get involved",
+                "Website");
 
-        getWait(2).until(ExpectedConditions.elementToBeClickable(By.xpath("//dt/a[@href='xml']"))).click();
+        List<String> actualMenu = new HomePage(getDriver())
+                .clickJenkinsVersionButton()
+                .getVersionJenkinsTippyBoxText();
 
-        Assert.assertEquals(getDriver().findElement(By.cssSelector("body > div.header>span")).getText()
-                , "This XML file does not appear to have any style information associated "
-                        + "with it. The document tree is shown below.");
-
+        Assert.assertEquals(actualMenu, expectedMenu);
     }
 
+    @Ignore
     @Test
-    public void testFooterLinkJenkinsIsVisible() {
-        getDriver().findElement(By.linkText("Manage Jenkins")).click();
-        scrollToEnd(getDriver());
-        new Actions(getDriver()).pause(1500).moveToElement(getDriver().findElement(JENKINS_LINK))
-                .perform();
+    public void testClickGetInvolved() {
+        String actualPageName = new HomePage(getDriver())
+                .goGetInvolvedWebsite()
+                .getHeadLineText();
 
-        Assert.assertTrue(getDriver().findElement(JENKINS_LINK).isDisplayed());
+        Assert.assertEquals(actualPageName, "Participate and Contribute");
+    }
+    @Ignore("Unable to locate element: {\"method\":\"css selector\",\"selector\":\"a[href='https://www.jenkins.io/']\"}(..)")
+    @Test
+    public void testClickWebsite() {
+        String actualPageName = new HomePage(getDriver())
+                .goWebsiteJenkins()
+                .getHeadLineText();
+
+        Assert.assertEquals(actualPageName, "Jenkins");
+    }
+
+    @Test(dependsOnMethods = "testCheckTippyBox")
+    public void testVerifyClickabilityOfRestAPILink() {
+        String restApi = new HomePage(getDriver())
+                .goRestApiPage()
+                .getHeadLineText();
+
+        Assert.assertEquals(restApi, REST_API);
+    }
+
+    @Test(dependsOnMethods = "testVerifyClickabilityOfRestAPILink")
+    public void testJenkinsVersionListTabBar() {
+        final List<String> expectedListTabBar = List.of(
+                "Mavenized dependencies",
+                "Static resources",
+                "License and dependency information for plugins");
+
+        List<String> tabBarList = new HomePage(getDriver())
+                .goAboutJenkinsPage()
+                .getTabBarText();
+
+        Assert.assertEquals(tabBarList, expectedListTabBar);
+    }
+
+    @Test(dependsOnMethods = "testJenkinsVersionListTabBar")
+    public void testVerifyAboutJenkinsTabNamesAndActiveStates() {
+        AboutJenkinsPage about = new HomePage(getDriver())
+                .goAboutJenkinsPage();
+
+        for (int i = 0; i < about.getTabBarElements().size(); i++) {
+            about.getTabBarElements().get(i).click();
+
+            Assert.assertTrue(about.getTabPaneElements().get(i).isDisplayed());
+        }
+    }
+
+    @Test(dependsOnMethods = "testVerifyAboutJenkinsTabNamesAndActiveStates")
+    public void testRestApiLinkRedirectionPeople() {
+        String restApi = new HomePage(getDriver())
+                .clickPeople()
+                .goRestApiPage()
+                .getHeadLineText();
+
+        Assert.assertEquals(restApi, REST_API);
+    }
+
+    @Test(dependsOnMethods = "testRestApiLinkRedirectionPeople")
+    public void testRestApiLinkRedirectionBuildHistory() {
+        String restApi = new HomePage(getDriver())
+                .clickBuildHistoryButton()
+                .goRestApiPage()
+                .getHeadLineText();
+
+        Assert.assertEquals(restApi, REST_API);
+    }
+
+    @Test(dependsOnMethods = "testRestApiLinkRedirectionBuildHistory")
+    public void testRestApiLinkRedirectionMyView() {
+        String restApi = new HomePage(getDriver())
+                .clickMyViews()
+                .goRestApiPage()
+                .getHeadLineText();
+
+        Assert.assertEquals(restApi, REST_API);
+    }
+
+    @Test(dependsOnMethods = "testRestApiLinkRedirectionMyView")
+    public void testRestApiLinkRedirectionUserStatus() {
+        String restApi = new HomePage(getDriver())
+                .clickUserNameHeader("admin")
+                .goRestApiPage()
+                .getHeadLineText();
+
+        Assert.assertEquals(restApi, REST_API);
+    }
+
+    @Test(dependsOnMethods = "testRestApiLinkRedirectionUserStatus")
+    public void testRestApiLinkRedirectionUserBuild() {
+        String restApi = new HomePage(getDriver())
+                .clickUserNameHeader("admin")
+                .clickBuildsButton()
+                .goRestApiPage()
+                .getHeadLineText();
+
+        Assert.assertEquals(restApi, REST_API);
+    }
+
+    @Test(dependsOnMethods = "testRestApiLinkRedirectionUserBuild")
+    public void testRestApiLinkRedirectionUserConfigure() {
+        String restApi = new HomePage(getDriver())
+                .clickUserNameHeader("admin")
+                .clickConfigure()
+                .goRestApiPage()
+                .getHeadLineText();
+
+        Assert.assertEquals(restApi, REST_API);
+    }
+
+    @Test(dependsOnMethods = "testRestApiLinkRedirectionUserConfigure")
+    public void testRestApiLinkRedirectionUserMyViews() {
+        String resApi = new HomePage(getDriver())
+                .clickUserNameHeader("admin")
+                .clickUserMyViews()
+                .goRestApiPage()
+                .getHeadLineText();
+
+        Assert.assertEquals(resApi, REST_API);
+    }
+
+    @Test(dependsOnMethods = "testRestApiLinkRedirectionUserMyViews")
+    public void testRestApiLinkRedirectionUserCredentials() {
+        String restApi = new HomePage(getDriver())
+                .clickUserNameHeader("admin")
+                .goCredentialsPage()
+                .goRestApiPage()
+                .getHeadLineText();
+
+        Assert.assertEquals(restApi, REST_API);
     }
 }
